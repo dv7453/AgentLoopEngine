@@ -1,0 +1,14 @@
+digraph CodeReviewWorkflow {
+  rankdir=LR;
+  node [shape=box, style=filled, fillcolor=lightgray];
+  "extract_functions";
+  "check_complexity";
+  "detect_issues";
+  "suggest_improvements";
+  "evaluate_quality";
+  "extract_functions" -> "check_complexity";
+  "check_complexity" -> "detect_issues";
+  "detect_issues" -> "suggest_improvements";
+  "suggest_improvements" -> "evaluate_quality";
+  "evaluate_quality" -> "detect_issues" [label="quality_below_threshold", color=blue];
+}
