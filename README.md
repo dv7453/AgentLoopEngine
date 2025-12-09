@@ -2,40 +2,29 @@
 
 ## Overview
 
-##### A small, clean workflow/graph engine inspired by LangGraph.
-##### Nodes are async Python functions operating on a shared WorkflowState.
-##### A GraphDefinition defines how nodes connect, including branching and simple looping.
+A small, clean workflow/graph engine inspired by LangGraph. Nodes are async Python functions operating on a shared state. A `GraphDefinition` describes how nodes connect, including simple branching and looping. The project is intentionally minimal and student-friendly.
 
-## 🚀 Features
+## Features
 
-##### Async nodes with typed shared state
-##### Simple branching via named conditions
-##### Looping until a condition is met
-##### Per-node execution logs
-##### In-memory storage (no database required)
-##### FastAPI endpoints to create, run, and inspect workflows
+- Async nodes with typed shared state (Pydantic)
+- Simple branching via named conditions
+- Looping until a condition is met (with max-iteration safety)
+- Per-node execution logs
+- In-memory storage for graphs and runs
+- FastAPI endpoints to create, run, and inspect workflows
 
-## 🧩 Architecture Overview
+## Architecture
 
-### `engine/models.py`
-##### Pydantic models: WorkflowState, GraphDefinition, RunContext, EdgeDef, BranchCondition
+- `app/engine/models.py`: Pydantic models (`WorkflowState`, `GraphDefinition`, `RunContext`, `EdgeDef`, `BranchCondition`)
+- `app/engine/registry.py`: Node registry, condition registry, and a simple `ToolRegistry`
+- `app/engine/runner.py`: Async sequential runner, branch evaluation, looping, per-step logging
+- `app/store/memory_store.py`: In-memory dictionaries for graphs and run contexts
+- `app/api/routes.py`: FastAPI endpoints (`/graph/create`, `/graph/run`, `/graph/state/{run_id}`)
+- `app/workflows/code_review.py`: Example Code Review Mini-Agent workflow
+- `visualize_graph.py`: Generates Graphviz DOT for the workflow (standalone helper)
+- `visualize_logs.py`: Prints a table from run logs (standalone helper)
 
-### `engine/registry.py`
-##### Node registry · Condition registry · Simple ToolRegistry
-
-### `engine/runner.py`
-##### Async workflow runner · Sequential execution · Branch evaluation · Looping + max iteration safety · Per-step logging
-
-### `store/memory_store.py`
-##### In-memory dictionaries for graphs and run contexts
-
-### `api/routes.py`
-##### /graph/create · /graph/run · /graph/state/{run_id}
-
-### `workflows/code_review.py`
-##### Example Code Review Mini-Agent workflow
-
-## ▶️ Running the Project
+## Running the Project
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
@@ -44,7 +33,7 @@ pip install fastapi uvicorn pydantic requests
 uvicorn app.main:app --reload
 ```
 
-### Health check
+Health check:
 
 ```http
 GET http://localhost:8000/
@@ -56,7 +45,7 @@ Expected response:
 { "status": "ok" }
 ```
 
-## 📌 API Usage
+## API Usage
 
 ### 1) Create a graph
 
@@ -99,6 +88,7 @@ Response:
 
 ```http
 POST /graph/run
+Content-Type: application/json
 
 {
   "graph_id": "<uuid-from-create>",
@@ -114,7 +104,14 @@ POST /graph/run
 
 Response includes:
 
-##### run_id · final_state · logs · status (e.g., completed, failed, or stopped_max_iterations)
+```json
+{
+  "run_id": "...",
+  "final_state": { ... },
+  "logs": [ ... ],
+  "status": "completed" | "failed" | "stopped_max_iterations"
+}
+```
 
 ### 3) Inspect run state
 
@@ -137,47 +134,36 @@ Example response:
 
 Note: `final_state` is only returned by `/graph/run`.
 
-## 🧠 Example Workflow: Code Review Agent
+## Example Workflow
 
-##### Nodes executed:
-##### extract_functions · check_complexity · detect_issues · suggest_improvements · evaluate_quality
+Code Review Agent:
 
-##### Looping:
-##### If quality_score < quality_threshold, evaluate_quality → detect_issues repeats.
+- Nodes: `extract_functions → check_complexity → detect_issues → suggest_improvements → evaluate_quality`
+- Looping: If `quality_score < quality_threshold`, the flow returns to `detect_issues` and repeats.
+- Condition: `quality_below_threshold`
 
-##### Condition:
-##### quality_below_threshold
+## Visualization Helpers
 
-This demonstrates branching + looping clearly.
+- `visualize_graph.py`: Generates `workflow_graph.dot` for the Code Review workflow.
 
-## 📊 Log & Graph Visualization (Optional Helpers)
+  Render with Graphviz:
 
-Two standalone scripts are included:
+  ```bash
+  dot -Tpng workflow_graph.dot -o workflow_graph.png
+  ```
 
-### `visualize_graph.py`
-##### Generates a Graphviz .dot file representing the workflow.
+- `visualize_logs.py`: Reads the POST `/graph/run` output and prints a table:
 
-Render with:
+  ```
+  Iteration | Node | Event | Keys Changed
+  ```
 
-```bash
-dot -Tpng workflow_graph.dot -o workflow_graph.png
-```
+  Keys Changed is computed by diffing consecutive `state.data` entries.
 
-### `visualize_logs.py`
-##### Takes the output of `/graph/run`.
+## Future Improvements
 
-Shows a table:
-
-```
-Iteration | Node | Event | Keys Changed
-```
-
-##### Computes differences between consecutive node states.
-
-## 🔧 Possible Future Improvements
-
-##### Persist graph/runs in a database
-##### Structured logging
-##### WebSocket live log streaming
-##### Per-node timeouts / cancellation
-##### Node input/output schemas
+- Persist graphs/runs in a database
+- Structured logging and tracing
+- WebSocket live log streaming
+- Per-node timeouts / cancellation
+- Node input/output schemas
